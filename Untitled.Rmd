@@ -1,0 +1,74 @@
+---
+title: "sackids2"
+author: "MC Abbott"
+date: "10/16/2021"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+
+```{r}
+library(leaflet)
+library(sf)
+library(tidyverse)
+library(tidycensus)
+library(ggthemes)
+library(ggspatial)
+library(htmlwidgets)
+library(tidytransit)
+```
+
+```{r}
+
+Sacramento_rentkids <- get_decennial(geography = "tract",
+    state = "CA", county = "Sacramento",
+    year = 2010,
+    output = "wide",
+    variables = c(tot_household = 'H006001', rentkids_household = 'HCT002009'),
+    geometry = TRUE)
+
+```
+```{r}
+
+Sacramento_rentkids <- Sacramento_rentkids %>%
+  mutate(pct_rentkids = rentkids_household / tot_household) %>%
+  filter(tot_household > 0)
+
+```
+
+```{r}
+CA_state_plane <- "+proj=aea +lat_1=34 +lat_2=40.5 +lat_0=0 +lon_0=-120 +x_0=0 +y_0=-4000000 +ellps=GRS80 +datum=NAD83 +units=m +no_defs"
+```
+
+```{r}
+CA_rentkids_palette <- colorNumeric(c("darkseagreen2", "midnightblue"), Sacramento_rentkids$pct_rentkids)
+```
+
+```{r}
+
+rentkids_map3 <- leaflet(Sacramento_rentkids) %>%
+  addProviderTiles("Stamen.TonerLite") %>%
+  addPolygons(color = ~CA_rentkids_palette(pct_rentkids), stroke = FALSE, fillOpacity = 0.7,
+              highlightOptions = highlightOptions(fillColor = "darkorange", fillOpacity = 0.9),
+              label = Sacramento_rentkids$NAME,
+              popup = paste("Total households: ", Sacramento_rentkids$tot_household, "<br/>",
+                            "Households with kids under the age of 18: ", Sacramento_rentkids$bl_pop, " (", 
+                            round(Sacramento_rentkids$pct_rentkids * 100, 1), "%)", sep = "")) %>%
+    addLegend("bottomright", pal = CA_rentkids_palette, values = ~pct_rentkids,
+    title = "Percent of households\nthat rent with kids/nunder the age of 18",
+    labFormat = labelFormat(suffix = "%",
+                            transform = function(x) 100 * x),
+    opacity = 1)
+
+rentkids_map3
+
+```
+
+```{r}
+
+saveWidget(rentkids_map3, file="inter_rentkids.html")
+
+```
